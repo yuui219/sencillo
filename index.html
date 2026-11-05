@@ -284,22 +284,22 @@ let db,cards=[],chats=[],view='cards',skipped=0,curCat='全部',autoCatOn=true;
 let catOff=[],customCats=[],catDel=[],delMode=false;
 const urls=new Map();
 
-// 精准化分类词库：区分高权重标签词与高置信度设定词，剔除日常易误判泛词
+// 基础分类定义（用于开关列表及顺序展示）
 const BASE_CATS=[
- ['年上',/年上|爹系|大叔|人夫|熟男|小叔|义父|继父|金主|上位者|引导型恋人|老男人|年龄差/i,/爹系|大叔|人夫|熟男|你的小叔|你的义父|你的继父|你的金主|引导型恋人/i],
- ['年下',/年下|奶狗|狼狗|小狗|犬系|学弟|正太|少年感|弟弟|养成系|姐弟恋|小师弟/i,/奶狗|狼狗|犬系|你的学弟|你的弟弟|姐弟恋|小师弟/i],
- ['古风',/古风|古代|仙侠|修真|修仙|江湖|武侠|宫廷|王府|暴君|将军|国师|摄政王|太子|王爷|世子|帝王|掌门|师尊|魔尊|剑尊|道长|锦衣卫|督军|少帅|民国/i,/古风|仙侠|修真|修仙|朝廷|皇宫|王府|暴君|摄政王|锦衣卫|师尊|魔尊|剑尊|督军|少帅/i],
- ['现代',/现代|都市|豪门|娱乐圈|财阀|京圈|黑道|破镜重圆|先婚后爱|同居|青梅竹马|欢喜冤家|追妻火葬场|替身|契约情侣|霸总|总裁|医生|刑警|律师|电竞|主播|机长|特警/i,/豪门|娱乐圈|财阀|京圈|破镜重圆|先婚后爱|追妻火葬场|霸道总裁/i],
- ['奇幻',/奇幻|西幻|魔法|吸血鬼|血族|恶魔|魅魔|天使|精灵|兽人|人外|触手|克苏鲁|末世|丧尸|赛博|科幻|哨兵|向导|哨向|无限流|副本|系统|星际|机甲|ABO|Alpha|Omega|Enigma/i,/吸血鬼|血族|魅魔|克苏鲁|丧尸|赛博朋克|哨兵|向导|无限流|星际|ABO|Alpha|Omega/i],
- ['校园',/校园|男大|高中|校霸|学霸|同桌|校草|学生会|体育生|不良少年|转学生|青春校园|大学校园/i,/青春校园|校霸|校草|不良少年|转学生|学生会长|体育生/i],
- ['悬疑',/悬疑|骨科|伪骨|病娇|疯批|强制爱|监禁|小黑屋|暗黑|犯罪|杀手|法医|怪谈|规则怪谈|惊悚|背德|NTR|阴湿|跟踪狂|切片|黑化/i,/病娇|疯批|强制爱|监禁|小黑屋|规则怪谈|背德|阴湿|跟踪狂/i]
+ ['年上',/年上|爹系|大叔|人夫|熟男|叔系|小叔|叔叔|义父|继父|养父|金主|上位者|掌权人|掌权者|引导型|老男人|年龄差|年长|哥哥|兄长|大哥|表哥|堂哥|师兄|大师兄|学长|前辈|上司|老板|总裁|董事长|执行官|CEO|总监|教授|导师|老师|先生|太傅|师尊|师父|掌门|家主|督军|少帅|将军|王爷|摄政王|太子|帝王|陛下|首长|长官|教官|队长|警官|刑警|医生|主治医师|主任|律师|机长|前夫/i],
+ ['年下',/年下|奶狗|狼狗|小狗|犬系|学弟|正太|少年感|弟弟|亲弟|表弟|堂弟|义弟|继弟|小师弟|师弟|徒弟|养成|姐弟恋|少爷|小少爷|男大|男高中生|高中生|少年|直球小狗|粘人精/i],
+ ['古风',/古风|古代|仙侠|修真|修仙|江湖|武侠|宫廷|皇宫|朝廷|王府|侯府|国公府|暴君|将军|国师|摄政王|太子|皇子|王爷|世子|帝王|皇帝|朕|本王|本座|本尊|掌门|师尊|师父|魔尊|剑尊|仙尊|宗门|道长|和尚|佛子|妖王|锦衣卫|厂督|东厂|太傅|丞相|状元|公主|娘娘|贵妃|丫鬟|青楼|花魁|镖局|客栈|民国|督军|少帅|军阀/i],
+ ['现代',/现代|都市|豪门|娱乐圈|财阀|京圈|沪圈|港圈|黑道|黑手党|帮派|破镜重圆|先婚后爱|契约婚姻|协议结婚|联姻|同居|青梅竹马|欢喜冤家|追妻火葬场|替身|白月光|朱砂痣|金丝雀|包养|契约情侣|霸总|总裁|集团|公司|职场|办公室|秘书|助理|医生|医院|外科|心理医生|刑警|警察|警局|法医|律师|律所|检察官|法官|电竞|战队|主播|直播|顶流|影帝|爱豆|明星|经纪人|导演|机长|空少|特警|保镖|房东|邻居|相亲|网恋|酒吧|夜店|赛车|乐队/i],
+ ['奇幻',/奇幻|西幻|魔幻|魔法|法师|巫师|魔女|吸血鬼|血族|恶魔|魅魔|天使|堕天使|精灵|兽人|半兽人|人外|龙族|巨龙|人鱼|鲛人|触手|克苏鲁|邪神|神明|神祇|祭司|圣子|圣女|骑士|勇者|魔王|异世界|穿书|快穿|末世|末日|丧尸|废土|赛博|科幻|仿生人|机器人|人工智能|AI|哨兵|向导|哨向|精神体|无限流|副本|系统|攻略|星际|机甲|帝国|联邦|虫族|ABO|Alpha|Omega|Beta|Enigma|信息素|发情期|易感期|标记|腺体/i],
+ ['校园',/校园|大学|高中|中学|校霸|学霸|同桌|校草|班长|学生会|社团|室友|宿敌|体育生|篮球队|不良少年|转学生|校服|教室|图书馆|操场|寝室|宿舍|毕业|高考|迎新|军训|助教|辅导员|留学/i],
+ ['悬疑',/悬疑|骨科|伪骨|病娇|疯批|偏执|阴暗|阴湿|强制|强取豪夺|监禁|囚禁|小黑屋|暗黑|犯罪|杀手|特工|卧底|黑客|侦探|怪谈|规则怪谈|无限恐怖|惊悚|灵异|鬼怪|背德|NTR|出轨|小三|偷情|绿帽|调教|BDSM|dom|sub|跟踪狂|私生饭|切片|黑化|斯德哥尔摩|复仇|替罪|救赎/i]
 ];
 
 function escReg(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 function getActiveRules(){
  const rules=[];
- for(const [name,tagReg,bodyReg] of BASE_CATS){
-  if(!catOff.includes(name)&&!catDel.includes(name))rules.push([name,tagReg,bodyReg||tagReg]);
+ for(const [name,reg] of BASE_CATS){
+  if(!catOff.includes(name)&&!catDel.includes(name))rules.push([name,reg,false]);
  }
  for(const c of customCats){
   if(!c||!c.name||catOff.includes(c.name)||catDel.includes(c.name))continue;
@@ -307,55 +307,112 @@ function getActiveRules(){
   if(!kws.includes(c.name))kws.unshift(c.name);
   try{
    const reg=new RegExp(kws.map(escReg).join('|'),'i');
-   rules.push([c.name,reg,reg]);
+   rules.push([c.name,reg,true]);
   }catch(e){}
  }
  return rules;
+}
+
+// 提取世界书内容辅助识别
+function getBookText(book){
+ if(!book||!book.entries)return '';
+ const es=Array.isArray(book.entries)?book.entries:Object.values(book.entries);
+ return es.map(e=>(e.comment||'')+' '+(e.keys||[]).join(' ')+' '+(e.content||'')).join(' ').slice(0,4000);
+}
+
+// 提取角色设定的具体年龄数值
+function extractAges(text){
+ const ages=[];
+ const patterns=[
+  /(?:年龄|年纪|芳龄|年岁|Age)\s*[:：是为]?\s*(\d{2})\b/gi,
+  /\b(\d{2})\s*(?:岁|周岁|yo|years?\s*old)\b/gi
+ ];
+ for(const reg of patterns){
+  let m;
+  while((m=reg.exec(text))!==null){
+   const n=parseInt(m[1],10);
+   if(n>=14&&n<=65)ages.push(n);
+  }
+ }
+ return ages;
 }
 
 function getCardCats(c,rules){
  const f=fields(c.raw);
  const tagStr=(c.tags||[]).join(' ');
  const metaText=[c.name,tagStr,f.notes].join(' ');
- // 仅取人设与背景前段核心描述，不扫描开场白(first_mes)以防对话日常词污染分类
- const bodyText=[f.pers,f.desc.slice(0,500),f.scen.slice(0,300)].join(' ');
+ const bookText=getBookText(f.book);
+ const bodyText=[f.pers,f.desc,f.scen,bookText].join(' ');
+ const fullText=metaText+' '+bodyText+' '+f.first.slice(0,500);
 
- const tagHits=new Set();
- const bodyHits=new Set();
+ const scores={};
+ for(const [cat] of rules)scores[cat]=0;
 
- for(const [cat,tagReg,bodyReg] of rules){
-  if(tagReg.test(metaText))tagHits.add(cat);
-  else if(bodyReg.test(bodyText))bodyHits.add(cat);
+ // 1. 关键词与正则匹配计分
+ for(const [cat,reg,isCustom] of rules){
+  if(isCustom){
+   if(reg.test(metaText))scores[cat]+=5;
+   else if(reg.test(fullText))scores[cat]+=3;
+   continue;
+  }
+  const gReg=new RegExp(reg.source,'gi');
+  const metaMatches=metaText.match(gReg);
+  const bodyMatches=bodyText.match(gReg);
+  const firstMatches=f.first.slice(0,500).match(gReg);
+  if(metaMatches)scores[cat]+=metaMatches.length*4;
+  if(bodyMatches)scores[cat]+=Math.min(bodyMatches.length,6)*1.5;
+  if(firstMatches)scores[cat]+=Math.min(firstMatches.length,3)*0.8;
  }
 
- // 解决年上/年下冲突：有明确年下标签或设定时，排除误判的年上
- const strongYoung=/年下|学弟|奶狗|狼狗|弟弟|姐弟恋|正太|小师弟/i;
- const strongOld=/年上|爹系|大叔|人夫|熟男|小叔|义父|继父/i;
- if(tagHits.has('年下')||strongYoung.test(metaText)){
-  if(!strongOld.test(tagStr)){tagHits.delete('年上');bodyHits.delete('年上')}
- }
- if(tagHits.has('年上')||strongOld.test(metaText)){
-  if(!strongYoung.test(tagStr)){tagHits.delete('年下');bodyHits.delete('年下')}
- }
- if(bodyHits.has('年下')&&bodyHits.has('年上')){
-  if(strongYoung.test(bodyText)&&!strongOld.test(bodyText))bodyHits.delete('年上');
-  else if(strongOld.test(bodyText)&&!strongYoung.test(bodyText))bodyHits.delete('年下');
-  else{bodyHits.delete('年上');bodyHits.delete('年下')}
- }
-
- // 解决古风/奇幻角色混入现代：若已命中古风或奇幻，且标签未明确写现代，则剔除正文误判的现代
- if(tagHits.has('古风')||bodyHits.has('古风')||tagHits.has('奇幻')||bodyHits.has('奇幻')){
-  if(!/现代|都市|豪门|娱乐圈|快穿/i.test(tagStr)){
-   bodyHits.delete('现代');
+ // 2. 年龄数字智能识别：解决人设只写“28岁/Age:30”没写“年上”二字的问题
+ const ages=extractAges(metaText+' '+f.pers+' '+f.desc);
+ if(ages.length){
+  const maxAge=Math.max(...ages);
+  const minAge=Math.min(...ages);
+  if(scores['年上']!==undefined){
+   if(maxAge>=25)scores['年上']+=4.5;
+   else if(maxAge>=23&&!/年下|弟弟|学弟/.test(metaText))scores['年上']+=2;
+  }
+  if(scores['年下']!==undefined){
+   if(minAge>=15&&maxAge<=19)scores['年下']+=3.5;
+   else if(maxAge===20&&!/年上|哥哥|学长|上司|总裁|教授/.test(metaText))scores['年下']+=2;
   }
  }
 
+ // 3. 强特征词直通加分与年上/年下冲突消解
+ const strongOldTag=/年上|爹系|大叔|人夫|熟男|叔系|小叔|叔叔|义父|继父|养父|金主|上位者|掌权|引导型|老男人|年龄差|前夫|上司|总裁|教授|导师|师尊|督军/i;
+ const strongYoungTag=/年下|奶狗|狼狗|小狗|犬系|学弟|正太|弟弟|小师弟|徒弟|姐弟恋/i;
+
+ if(scores['年上']!==undefined&&strongOldTag.test(metaText))scores['年上']+=6;
+ if(scores['年下']!==undefined&&strongYoungTag.test(metaText))scores['年下']+=6;
+
+ // 若同时命中年上和年下，比较得分高低，保留主导属性（除非标签里同时写了年上和年下）
+ if(scores['年上']>0&&scores['年下']>0){
+  const bothInTag=/年上/.test(tagStr)&&/年下/.test(tagStr);
+  if(!bothInTag){
+   if(scores['年上']>=scores['年下']*1.15)scores['年下']=0;
+   else if(scores['年下']>scores['年上']*1.15)scores['年上']=0;
+  }
+ }
+
+ // 4. 古风/奇幻 与 现代 的冲突消解：纯古风/西幻卡剔除微弱的现代泛词得分
+ const isStrongAncient=(scores['古风']||0)>=4||/古风|古代|仙侠|修真|修仙|武侠|宫廷|王府|师尊|魔尊|皇宫|朝廷/i.test(metaText);
+ const isStrongFantasy=(scores['奇幻']||0)>=5&&/西幻|魔法|精灵|兽人|巨龙|魔王|勇者|星际|虫族/i.test(fullText);
+ if((isStrongAncient||isStrongFantasy)&&scores['现代']!==undefined){
+  if(!/现代|都市|豪门|娱乐圈|快穿|穿书/i.test(metaText)&&scores['现代']<6){
+   scores['现代']=0;
+  }
+ }
+
+ // 5. 汇总达到阈值的分类，并按匹配度排序
  const matched=[];
  for(const [cat] of rules){
-  if(tagHits.has(cat)||bodyHits.has(cat))matched.push(cat);
+  if(scores[cat]>=1.5)matched.push({cat,score:scores[cat]});
  }
- if(!matched.length)matched.push('其他');
- return matched;
+ matched.sort((a,b)=>b.score-a.score);
+ const res=matched.map(x=>x.cat);
+ if(!res.length)res.push('其他');
+ return res;
 }
 
 function openDB(){return new Promise((ok,no)=>{const r=indexedDB.open('st-vault',1);
