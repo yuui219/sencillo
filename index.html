@@ -211,7 +211,7 @@ body.lg .gc .sm{-webkit-line-clamp:2}
   </div>
   <input id="fFiles" type="file" multiple accept=".png,.json,.jsonl,.zip" hidden>
   <input id="fDir" type="file" webkitdirectory multiple hidden>
-  <details><summary>怎么导入？</summary><p class="hint">在 MT 管理器里把酒馆的 <b>data/default-user</b>（旧版是 <b>public</b>）整个压缩成 zip，复制到「下载」目录，再在这里选这个 zip 即可。也可以直接选 characters、chats、backups 里的文件。支持 PNG 卡、JSON 卡、聊天记录 jsonl。</p></details>
+  <details><summary>怎么导入？</summary><p class="hint">• <b>完整导入（含角色卡与聊天记录）</b>：在 MT 管理器里把酒馆的 <b>data/default-user</b>（旧版是 <b>public</b>）整个压缩成 zip，复制到「下载」目录后在此选择即可。<br>• <b>仅导入角色卡 PNG</b>：只需将 <b>data/default-user/characters/</b> 文件夹单独打包成 zip 导入，或直接多选里面的 PNG/JSON 角色卡文件。</p></details>
   <div id="log"></div>
 </div>
 
@@ -284,37 +284,75 @@ let db,cards=[],chats=[],view='cards',skipped=0,curCat='全部',autoCatOn=true;
 let catOff=[],customCats=[],catDel=[],delMode=false;
 const urls=new Map();
 
+// 精准化分类词库：区分高权重标签词与高置信度设定词，剔除日常易误判泛词
 const BASE_CATS=[
- ['年上',/年上|大叔|爹系|哥哥|学长|上司|总裁|老师|教授|导师|叔叔|前辈|人夫|熟男|御姐|姐姐|义父|继父|小叔|世子|王爷|帝王|掌门|师尊|师父/i],
- ['年下',/年下|弟弟|学弟|奶狗|狼狗|少年|正太|养成|竹马|病娇弟|学妹|妹妹|幼驯染|犬系|徒弟|小师弟/i],
- ['古风',/古风|古代|仙侠|修真|修仙|江湖|武侠|宫廷|皇宫|王府|暴君|将军|国师|道长|和尚|妖|魔尊|剑尊|世家|民国|督军|少帅/i],
- ['现代',/现代|都市|豪门|娱乐圈|校园|职场|总裁|青梅|破镜重圆|同居|先婚后爱|财阀|黑道|京圈|医生|刑警|律师|电竞|主播|ABO|Alpha|Omega/i],
- ['奇幻',/奇幻|西幻|魔法|吸血鬼|血族|恶魔|天使|精灵|兽人|人外|触手|克苏鲁|末世|丧尸|赛博|科幻|向导|哨兵|无限流|副本|系统|星际|ABO/i],
- ['校园',/校园|高中|大学|校霸|学霸|同桌|学长|学弟|室友|校草|社团|学生会|体育生|不良少年/i],
- ['悬疑',/悬疑|骨科|病娇|疯批|强制|监禁|暗黑|犯罪|杀手|侦探|法医|怪谈|规则|惊悚|背德|NTR|伪骨/i]
+ ['年上',/年上|爹系|大叔|人夫|熟男|小叔|义父|继父|金主|上位者|引导型恋人|老男人|年龄差/i,/爹系|大叔|人夫|熟男|你的小叔|你的义父|你的继父|你的金主|引导型恋人/i],
+ ['年下',/年下|奶狗|狼狗|小狗|犬系|学弟|正太|少年感|弟弟|养成系|姐弟恋|小师弟/i,/奶狗|狼狗|犬系|你的学弟|你的弟弟|姐弟恋|小师弟/i],
+ ['古风',/古风|古代|仙侠|修真|修仙|江湖|武侠|宫廷|王府|暴君|将军|国师|摄政王|太子|王爷|世子|帝王|掌门|师尊|魔尊|剑尊|道长|锦衣卫|督军|少帅|民国/i,/古风|仙侠|修真|修仙|朝廷|皇宫|王府|暴君|摄政王|锦衣卫|师尊|魔尊|剑尊|督军|少帅/i],
+ ['现代',/现代|都市|豪门|娱乐圈|财阀|京圈|黑道|破镜重圆|先婚后爱|同居|青梅竹马|欢喜冤家|追妻火葬场|替身|契约情侣|霸总|总裁|医生|刑警|律师|电竞|主播|机长|特警/i,/豪门|娱乐圈|财阀|京圈|破镜重圆|先婚后爱|追妻火葬场|霸道总裁/i],
+ ['奇幻',/奇幻|西幻|魔法|吸血鬼|血族|恶魔|魅魔|天使|精灵|兽人|人外|触手|克苏鲁|末世|丧尸|赛博|科幻|哨兵|向导|哨向|无限流|副本|系统|星际|机甲|ABO|Alpha|Omega|Enigma/i,/吸血鬼|血族|魅魔|克苏鲁|丧尸|赛博朋克|哨兵|向导|无限流|星际|ABO|Alpha|Omega/i],
+ ['校园',/校园|男大|高中|校霸|学霸|同桌|校草|学生会|体育生|不良少年|转学生|青春校园|大学校园/i,/青春校园|校霸|校草|不良少年|转学生|学生会长|体育生/i],
+ ['悬疑',/悬疑|骨科|伪骨|病娇|疯批|强制爱|监禁|小黑屋|暗黑|犯罪|杀手|法医|怪谈|规则怪谈|惊悚|背德|NTR|阴湿|跟踪狂|切片|黑化/i,/病娇|疯批|强制爱|监禁|小黑屋|规则怪谈|背德|阴湿|跟踪狂/i]
 ];
 
 function escReg(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 function getActiveRules(){
  const rules=[];
- for(const [name,reg] of BASE_CATS){
-  if(!catOff.includes(name)&&!catDel.includes(name))rules.push([name,reg]);
+ for(const [name,tagReg,bodyReg] of BASE_CATS){
+  if(!catOff.includes(name)&&!catDel.includes(name))rules.push([name,tagReg,bodyReg||tagReg]);
  }
  for(const c of customCats){
   if(!c||!c.name||catOff.includes(c.name)||catDel.includes(c.name))continue;
   const kws=(c.kw||c.name).split(/[,，、\s|]+/).map(x=>x.trim()).filter(Boolean);
   if(!kws.includes(c.name))kws.unshift(c.name);
-  try{rules.push([c.name,new RegExp(kws.map(escReg).join('|'),'i')])}catch(e){}
+  try{
+   const reg=new RegExp(kws.map(escReg).join('|'),'i');
+   rules.push([c.name,reg,reg]);
+  }catch(e){}
  }
  return rules;
 }
 
 function getCardCats(c,rules){
  const f=fields(c.raw);
- const text=[c.name,(c.tags||[]).join(' '),f.desc,f.pers,f.scen,f.notes,f.first].join(' ');
+ const tagStr=(c.tags||[]).join(' ');
+ const metaText=[c.name,tagStr,f.notes].join(' ');
+ // 仅取人设与背景前段核心描述，不扫描开场白(first_mes)以防对话日常词污染分类
+ const bodyText=[f.pers,f.desc.slice(0,500),f.scen.slice(0,300)].join(' ');
+
+ const tagHits=new Set();
+ const bodyHits=new Set();
+
+ for(const [cat,tagReg,bodyReg] of rules){
+  if(tagReg.test(metaText))tagHits.add(cat);
+  else if(bodyReg.test(bodyText))bodyHits.add(cat);
+ }
+
+ // 解决年上/年下冲突：有明确年下标签或设定时，排除误判的年上
+ const strongYoung=/年下|学弟|奶狗|狼狗|弟弟|姐弟恋|正太|小师弟/i;
+ const strongOld=/年上|爹系|大叔|人夫|熟男|小叔|义父|继父/i;
+ if(tagHits.has('年下')||strongYoung.test(metaText)){
+  if(!strongOld.test(tagStr)){tagHits.delete('年上');bodyHits.delete('年上')}
+ }
+ if(tagHits.has('年上')||strongOld.test(metaText)){
+  if(!strongYoung.test(tagStr)){tagHits.delete('年下');bodyHits.delete('年下')}
+ }
+ if(bodyHits.has('年下')&&bodyHits.has('年上')){
+  if(strongYoung.test(bodyText)&&!strongOld.test(bodyText))bodyHits.delete('年上');
+  else if(strongOld.test(bodyText)&&!strongYoung.test(bodyText))bodyHits.delete('年下');
+  else{bodyHits.delete('年上');bodyHits.delete('年下')}
+ }
+
+ // 解决古风/奇幻角色混入现代：若已命中古风或奇幻，且标签未明确写现代，则剔除正文误判的现代
+ if(tagHits.has('古风')||bodyHits.has('古风')||tagHits.has('奇幻')||bodyHits.has('奇幻')){
+  if(!/现代|都市|豪门|娱乐圈|快穿/i.test(tagStr)){
+   bodyHits.delete('现代');
+  }
+ }
+
  const matched=[];
- for(const [cat,reg] of rules){
-  if(reg.test(text))matched.push(cat);
+ for(const [cat] of rules){
+  if(tagHits.has(cat)||bodyHits.has(cat))matched.push(cat);
  }
  if(!matched.length)matched.push('其他');
  return matched;
@@ -462,7 +500,7 @@ function render(){
    const cs=autoCatOn?(catMap.get(c.id)||getCardCats(c,rules)).filter(x=>x!=='其他').slice(0,2):[];
    d.innerHTML=th+'<div class="tx"><div class="nm">'+esc(c.name)+'</div><div class="sm">'+esc(sumOf(c))+'</div><div class="meta">'+esc(c.creator||'未知作者')+' ・ '+c.size+' 字'+(cb?' ・ 聊天 '+mb(cb):'')+'</div><div>'+
     cs.map(t=>'<span class="tag big">'+esc(t)+'</span>').join('')+
-    (c.size>6000?'<span class="tag big">设定偏长</span>':'')+(cb>8*1048576?'<span class="tag big">聊天很大</span>':'')+(c.tags||[]).slice(0,3).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div></div>';
+    (cb>8*1048576?'<span class="tag big">聊天很大</span>':'')+(c.tags||[]).slice(0,3).map(t=>'<span class="tag">'+esc(t)+'</span>').join('')+'</div></div>';
    d.onclick=()=>showCard(c);L.appendChild(d);
   }
  }else{
