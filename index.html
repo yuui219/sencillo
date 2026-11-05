@@ -284,7 +284,6 @@ let db,cards=[],chats=[],view='cards',skipped=0,curCat='全部',autoCatOn=true;
 let catOff=[],customCats=[],catDel=[],delMode=false;
 const urls=new Map();
 
-// 基础分类定义（用于开关列表及顺序展示）
 const BASE_CATS=[
  ['年上',/年上|爹系|大叔|人夫|熟男|叔系|小叔|叔叔|义父|继父|养父|金主|上位者|掌权人|掌权者|引导型|老男人|年龄差|年长|哥哥|兄长|大哥|表哥|堂哥|师兄|大师兄|学长|前辈|上司|老板|总裁|董事长|执行官|CEO|总监|教授|导师|老师|先生|太傅|师尊|师父|掌门|家主|督军|少帅|将军|王爷|摄政王|太子|帝王|陛下|首长|长官|教官|队长|警官|刑警|医生|主治医师|主任|律师|机长|前夫/i],
  ['年下',/年下|奶狗|狼狗|小狗|犬系|学弟|正太|少年感|弟弟|亲弟|表弟|堂弟|义弟|继弟|小师弟|师弟|徒弟|养成|姐弟恋|少爷|小少爷|男大|男高中生|高中生|少年|直球小狗|粘人精/i],
@@ -313,14 +312,12 @@ function getActiveRules(){
  return rules;
 }
 
-// 提取世界书内容辅助识别
 function getBookText(book){
  if(!book||!book.entries)return '';
  const es=Array.isArray(book.entries)?book.entries:Object.values(book.entries);
  return es.map(e=>(e.comment||'')+' '+(e.keys||[]).join(' ')+' '+(e.content||'')).join(' ').slice(0,4000);
 }
 
-// 提取角色设定的具体年龄数值
 function extractAges(text){
  const ages=[];
  const patterns=[
@@ -348,7 +345,6 @@ function getCardCats(c,rules){
  const scores={};
  for(const [cat] of rules)scores[cat]=0;
 
- // 1. 关键词与正则匹配计分
  for(const [cat,reg,isCustom] of rules){
   if(isCustom){
    if(reg.test(metaText))scores[cat]+=5;
@@ -364,7 +360,6 @@ function getCardCats(c,rules){
   if(firstMatches)scores[cat]+=Math.min(firstMatches.length,3)*0.8;
  }
 
- // 2. 年龄数字智能识别：解决人设只写“28岁/Age:30”没写“年上”二字的问题
  const ages=extractAges(metaText+' '+f.pers+' '+f.desc);
  if(ages.length){
   const maxAge=Math.max(...ages);
@@ -379,14 +374,12 @@ function getCardCats(c,rules){
   }
  }
 
- // 3. 强特征词直通加分与年上/年下冲突消解
  const strongOldTag=/年上|爹系|大叔|人夫|熟男|叔系|小叔|叔叔|义父|继父|养父|金主|上位者|掌权|引导型|老男人|年龄差|前夫|上司|总裁|教授|导师|师尊|督军/i;
  const strongYoungTag=/年下|奶狗|狼狗|小狗|犬系|学弟|正太|弟弟|小师弟|徒弟|姐弟恋/i;
 
  if(scores['年上']!==undefined&&strongOldTag.test(metaText))scores['年上']+=6;
  if(scores['年下']!==undefined&&strongYoungTag.test(metaText))scores['年下']+=6;
 
- // 若同时命中年上和年下，比较得分高低，保留主导属性（除非标签里同时写了年上和年下）
  if(scores['年上']>0&&scores['年下']>0){
   const bothInTag=/年上/.test(tagStr)&&/年下/.test(tagStr);
   if(!bothInTag){
@@ -395,7 +388,13 @@ function getCardCats(c,rules){
   }
  }
 
- // 4. 古风/奇幻 与 现代 的冲突消解：纯古风/西幻卡剔除微弱的现代泛词得分
+ // 新增：严格阻止现代背景/物品卡混入古风分类
+ const modernCheck=/现代|都市|豪门|娱乐圈|财阀|京圈|黑道|总裁|职场|医生|刑警|律师|电竞|主播|手机|微信|跑车|西装|咖啡|枪械|高楼|公寓|地铁|飞机/i;
+ const isModernCard=modernCheck.test(metaText)||modernCheck.test(tagStr)||(scores['现代']||0)>=3;
+ if(isModernCard){
+  scores['古风']=0;
+ }
+
  const isStrongAncient=(scores['古风']||0)>=4||/古风|古代|仙侠|修真|修仙|武侠|宫廷|王府|师尊|魔尊|皇宫|朝廷/i.test(metaText);
  const isStrongFantasy=(scores['奇幻']||0)>=5&&/西幻|魔法|精灵|兽人|巨龙|魔王|勇者|星际|虫族/i.test(fullText);
  if((isStrongAncient||isStrongFantasy)&&scores['现代']!==undefined){
@@ -404,7 +403,6 @@ function getCardCats(c,rules){
   }
  }
 
- // 5. 汇总达到阈值的分类，并按匹配度排序
  const matched=[];
  for(const [cat] of rules){
   if(scores[cat]>=1.5)matched.push({cat,score:scores[cat]});
